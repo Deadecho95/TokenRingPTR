@@ -337,7 +337,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\RTE\uGFX_library;..\09_TOR_KEIL</IncludePath>
+              <IncludePath>.\RTE\uGFX_library;..\tokenPtr</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
