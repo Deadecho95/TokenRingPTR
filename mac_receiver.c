@@ -53,7 +53,7 @@ void MacReceiver(void *argument)
 		else{ 			// data frame
 			//crc//
 			for(int i = 0; i < qPtr[2]; i++){
-				crc = crc + *qPtr+2+i;
+				crc = crc + *qPtr+3+i;
 			}
 			crc = crc&0x3f;
 			
@@ -111,7 +111,8 @@ void MacReceiver(void *argument)
 					//----------------------------------------------------------------------------
 					// Mem alloc				
 					//----------------------------------------------------------------------------
-						msg = osMemoryPoolAlloc(memPool,osWaitForever);											
+						msg = osMemoryPoolAlloc(memPool,osWaitForever);
+						memset(msg,0,MAX_BLOCK_SIZE);					
 						memcpy(msg,&qPtr[3],qPtr[2]);
 						queueMsg.anyPtr = msg;
 						queueMsg.type = DATA_IND;
