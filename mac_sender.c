@@ -24,7 +24,10 @@ void MacSender(void *argument)
 	uint8_t * tokenPtr;
 	osStatus_t retCode;
 	uint8_t * msg;
+	uint8_t * qPtr;
 	uint8_t crc = 0;
+
+	
 
 	//------------------------------------------------------------------------------
 	for (;;)						// loop until doomsday
@@ -42,7 +45,7 @@ void MacSender(void *argument)
 		switch(queueMsg.type){
 			case NEW_TOKEN :
 					//----------------------------------------------------------------------------
-					// Mem alloc				
+					// Mem alloc (keep old msg)			
 					//----------------------------------------------------------------------------
 						msg = osMemoryPoolAlloc(memPool,osWaitForever);						
 						memset(msg,0,17);
@@ -57,7 +60,10 @@ void MacSender(void *argument)
 						&queueMsg,
 						osPriorityNormal,
 						osWaitForever);
-					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);						
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+
+				
+			
 				break;
 			
 			case START :
@@ -113,11 +119,11 @@ void MacSender(void *argument)
 					NULL,
 					NULL); 	
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-				oldMsgPtr = queueMsg.anyPtr;
+
 				
 				if(retCode == osOK){
 					//----------------------------------------------------------------------------
-					// Mem alloc				
+					// Mem alloc (creae data to send to the other station)	
 					//----------------------------------------------------------------------------
 					msg = osMemoryPoolAlloc(memPool,osWaitForever);
 					memset(msg,0,MAX_BLOCK_SIZE);
@@ -126,11 +132,25 @@ void MacSender(void *argument)
 					*(msg+2) = strlen(queueMsg.anyPtr);												//length
 					memcpy(msg+3,queueMsg.anyPtr,*(msg+2));										//copy data
 					//crc//
-					for(int i = 0; i < *(msg+2); i++){
-						crc = crc + *(msg+3+i);
+					crc = 0;
+					for(int i = 0; i < *(msg+2)+3; i++){
+						crc = crc + *(msg+i);
 					}
 					crc = crc&0x3f;
 					*(msg+msg[2]+3) = crc<<2;
+					
+					//------------------------------------------------------------------------
+					// MEMORY RELEASE	(delete data ind)
+					//------------------------------------------------------------------------
+					retCode = osMemoryPoolFree(memPool,queueMsg.anyPtr);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);					
+					
+					//----------------------------------------------------------------------------
+					// Mem alloc				
+					//----------------------------------------------------------------------------
+					oldMsgPtr = osMemoryPoolAlloc(memPool,osWaitForever);			
+					memcpy(oldMsgPtr,msg,msg[2]+4);
+
 					
 					//--------------------------------------------------------------------------
 					// QUEUE SEND	(send msg to phy)
@@ -143,7 +163,9 @@ void MacSender(void *argument)
 						&queueMsg,
 						osPriorityNormal,
 						osWaitForever);
-					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+
+
 				}
 				else{
 					//--------------------------------------------------------------------------
@@ -161,6 +183,101 @@ void MacSender(void *argument)
 				break;	
 
 			case DATABACK :
+
+	//----------------------------------------------------------------------------
+	// Test Frame				
+	//----------------------------------------------------------------------------
+		qPtr = queueMsg.anyPtr;
+		
+		if((qPtr[qPtr[2]+3]&1) == 1)//ack ok
+		{
+			//------------------------------------------------------------------------
+			// MEMORY RELEASE	(delete old msg)
+			//------------------------------------------------------------------------
+			retCode = osMemoryPoolFree(memPool,oldMsgPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+			
+			//--------------------------------------------------------------------------
+			// QUEUE SEND	(send token to phy)
+			//--------------------------------------------------------------------------
+			queueMsg.type = TO_PHY;
+			queueMsg.anyPtr = tokenPtr;
+			
+			retCode = osMessageQueuePut(
+				queue_phyS_id,
+				&queueMsg,
+				osPriorityNormal,
+				osWaitForever);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+		}
+		else if(((qPtr[qPtr[2]+3]>>1)&0x1) == 0)// not read
+		{
+			
+			//----------------------------------------------------------------------------
+			// Mem alloc				
+			//----------------------------------------------------------------------------
+			msg = osMemoryPoolAlloc(memPool,osWaitForever);						
+			memset(msg,0,17);
+			sprintf ((char*)msg, "station %d not respond\r\n", ((oldMsgPtr[1]&0x78)>>3)+1);
+			
+			queueMsg.anyPtr = msg;
+			queueMsg.type = MAC_ERROR;
+			
+			//------------------------------------------------------------------------
+			// MEMORY RELEASE	(delete old msg)
+			//------------------------------------------------------------------------
+			retCode = osMemoryPoolFree(memPool,oldMsgPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+			
+			//--------------------------------------------------------------------------
+			// QUEUE SEND	(send an error)
+			//--------------------------------------------------------------------------
+			queueMsg.type = MAC_ERROR;
+			queueMsg.anyPtr = msg;
+			queueMsg.addr = (oldMsgPtr[0] & 0x78)>>3;
+			
+			retCode = osMessageQueuePut(
+				queue_lcd_id,
+				&queueMsg,
+				osPriorityNormal,
+				osWaitForever);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+
+
+			
+			//--------------------------------------------------------------------------
+			// QUEUE SEND	(send token to phy)
+			//--------------------------------------------------------------------------
+			queueMsg.type = TO_PHY;
+			queueMsg.anyPtr = tokenPtr;
+			
+			retCode = osMessageQueuePut(
+				queue_phyS_id,
+				&queueMsg,
+				osPriorityNormal,
+				osWaitForever);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);				
+		}
+		else{//ack not ok
+			//--------------------------------------------------------------------------
+			// QUEUE SEND	(send oldmsg to phy)
+			//--------------------------------------------------------------------------
+			queueMsg.type = TO_PHY;
+			queueMsg.anyPtr = oldMsgPtr;
+			
+			retCode = osMessageQueuePut(
+				queue_phyS_id,
+				&queueMsg,
+				osPriorityNormal,
+				osWaitForever);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+		}
+		
+			//------------------------------------------------------------------------
+			// MEMORY RELEASE	(delete data ind)
+			//------------------------------------------------------------------------
+			retCode = osMemoryPoolFree(memPool,qPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);			
 				break;				
 			
 			default:

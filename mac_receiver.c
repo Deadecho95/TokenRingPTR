@@ -52,12 +52,11 @@ void MacReceiver(void *argument)
 		}
 		else{ 			// data frame
 			//crc//
-			for(int i = 0; i < qPtr[2]; i++){
-				crc = crc + *qPtr+3+i;
+			crc = 0;
+			for(int i = 0; i < *(qPtr+2)+3; i++){
+				crc = crc + *(qPtr+i);
 			}
-			crc = crc&0x3f;
-			
-			
+				crc = crc & 0x3f;
 			//crcr not ok
 			if(crc != ((qPtr[qPtr[2]+3])&0xfc)>>2){
 				qPtr[qPtr[2]+3] = qPtr[qPtr[2]+3] | 0x02;	//READ = 1
@@ -69,8 +68,8 @@ void MacReceiver(void *argument)
 			}
 			//crc ok
 			else{		//data frame ok
-				//source of not
-				if((qPtr[0]&0xf8>>3) == gTokenInterface.myAddress){//if source
+				//source or not
+				if((qPtr[0]&0x78)>>3 == gTokenInterface.myAddress){//if source
 					//--------------
 					//databack
 					//--------------
@@ -96,7 +95,7 @@ void MacReceiver(void *argument)
 					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 				}					
 				//if dest or not
-				if((qPtr[1]&0xf8>>3) == gTokenInterface.myAddress || (qPtr[1]&0xf8>>3) == BROADCAST_ADDRESS ){//if dest
+				if((qPtr[1]&0x78)>>3 == gTokenInterface.myAddress || (qPtr[1]&0x78)>>3 == BROADCAST_ADDRESS ){//if dest
 					
 					qPtr[qPtr[2]+3] = qPtr[qPtr[2]+3] | 0x03;	//READ = 1 ack = 1
 					
@@ -133,7 +132,8 @@ void MacReceiver(void *argument)
 				else{//not dest
 					//nothing todo 
 				}
+				
 			}
-		}
+		}		
 	}
 }

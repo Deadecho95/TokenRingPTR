@@ -169,14 +169,14 @@
 //   <i> Defines stack size for threads with zero stack size specified.
 //   <i> Default: 200
 #ifndef OS_STACK_SIZE
-#define OS_STACK_SIZE               200
+#define OS_STACK_SIZE               10240
 #endif
  
 //   <o>Idle Thread Stack size [bytes] <72-1073741824:8>
 //   <i> Defines stack size for Idle thread.
 //   <i> Default: 200
 #ifndef OS_IDLE_THREAD_STACK_SIZE
-#define OS_IDLE_THREAD_STACK_SIZE   200
+#define OS_IDLE_THREAD_STACK_SIZE   10240
 #endif
  
 //   <o>Idle Thread TrustZone Module Identifier

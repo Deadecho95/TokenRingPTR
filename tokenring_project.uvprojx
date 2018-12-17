@@ -337,7 +337,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\RTE\uGFX_library;..\tokenPtr</IncludePath>
+              <IncludePath>.\RTE\uGFX_library;..\TokenRingPTR</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
